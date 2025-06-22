@@ -1,22 +1,184 @@
-### AL ###
-#Template for AL projects for Dynamics 365 Business Central
-#launch.json folder
-.vscode/
-#Cache folder
-.alcache/
-#Symbols folder
-.alpackages/
-#Snapshots folder
-.snapshots/
-#Testing Output folder
-.output/
-#Extension App-file
-*.app
-#Rapid Application Development File
-rad.json
-#Translation Base-file
-*.g.xlf
-#License-file
-*.flf
-#Test results file
-TestResults.xml
+#include <stdio.h>
+#include <string.h>
+
+#define MAX_MEMBERS 10
+
+struct SINFO {
+    float allowance;
+    float fare;
+    float food;
+    float net_allowance;
+};
+
+struct PINFO {
+    char name[50];
+    int age;
+    char school[50];
+    struct SINFO sinfo;
+};
+
+struct PINFO personal[MAX_MEMBERS];
+int student_count = 0;
+
+void clearBuffer() {
+    while (getchar() != '\n');
+}
+
+void ADDSTUDENT();
+void DISPLAYSTUDENT();
+void computeNetAllowances();  // void function to calculate total and average net allowance
+float calculateNetAllowance(float allowance, float fare, float food);
+void SEARCHBYSCHOOL();
+
+int main () {
+    int choice;
+
+    do {
+        printf("\n--- practicing struct ---\n");
+        printf("1. Add student\n");
+        printf("2. Display all students\n");
+        printf("3. Calculate overall allowance and total\n");
+        printf("4. Search student by school\n");
+        printf("5. Exit the program\n");
+        printf("-----------------------------\n");
+        printf("Enter choice: ");
+        scanf("%d", &choice);
+        clearBuffer();  // Clear buffer after scanf
+
+        switch(choice) {
+            case 1:
+                ADDSTUDENT();
+                break;
+            case 2:
+                DISPLAYSTUDENT();
+                break;
+            case 3:
+                computeNetAllowances();
+                break;
+            case 4:
+                SEARCHBYSCHOOL();
+                break;
+            case 5:
+                printf("Exiting the program...\n");
+                break;
+            default:
+                printf("Invalid choice! Please try again.\n");
+                break;
+        }
+    } while (choice != 5);
+
+    return 0;
+}
+
+void ADDSTUDENT() {
+    if (student_count == MAX_MEMBERS) {
+        printf("Inputting new members is not allowed.\n");
+        return;
+    }
+    
+    struct PINFO pinfo;
+
+    printf("What is your name: ");
+    fgets(pinfo.name, sizeof(pinfo.name), stdin);
+    pinfo.name[strcspn(pinfo.name, "\n")] = '\0';
+
+    printf("Your age: ");
+    scanf("%d", &pinfo.age);
+    clearBuffer();
+
+    printf("Where is your school: ");
+    fgets(pinfo.school, sizeof(pinfo.school), stdin);
+    pinfo.school[strcspn(pinfo.school, "\n")] = '\0';
+
+    printf("What is your allowance: ");
+    scanf("%f", &pinfo.sinfo.allowance);
+    clearBuffer();
+
+    printf("What is your fare: ");
+    scanf("%f", &pinfo.sinfo.fare);
+    clearBuffer();
+    
+    printf("How much is your food: ");
+    scanf("%f", &pinfo.sinfo.food);
+    clearBuffer();
+
+    pinfo.sinfo.net_allowance = calculateNetAllowance(pinfo.sinfo.allowance, pinfo.sinfo.fare, pinfo.sinfo.food);
+
+    personal[student_count] = pinfo;
+    student_count++;
+
+    printf("Adding student successfully!\n");
+}
+
+void DISPLAYSTUDENT() {
+    if (student_count == 0) {
+        printf("No students to display.\n");
+        return;
+    }
+
+    for (int i = 0; i < student_count; i++) {
+        printf("\n--- Student %d ---\n", i + 1);
+        printf("Name: %s\n", personal[i].name);
+        printf("Age: %d\n", personal[i].age);
+        printf("School: %s\n", personal[i].school);
+        printf("Allowance: %.2f\n", personal[i].sinfo.allowance);
+        printf("Fare: %.2f\n", personal[i].sinfo.fare);
+        printf("Food: %.2f\n", personal[i].sinfo.food);
+        printf("Net Allowance: %.2f\n", personal[i].sinfo.net_allowance);
+    }
+}
+
+float calculateNetAllowance(float allowance, float fare, float food) {
+    return allowance - (fare + food);
+}
+
+void computeNetAllowances() {
+    if (student_count == 0) {
+        printf("No student records to compute.\n");
+        return;
+    }
+
+    for (int i = 0; i < student_count; i++) {
+        personal[i].sinfo.net_allowance = calculateNetAllowance(
+            personal[i].sinfo.allowance,
+            personal[i].sinfo.fare,
+            personal[i].sinfo.food
+        );
+    }
+
+    printf("Net allowances computed successfully for all students.\n");
+}
+
+
+void SEARCHBYSCHOOL() {
+    if (student_count == 0) {
+        printf("No students in the list yet.\n");
+        return;
+    }
+
+    char searchSchool[50];
+    int found = 0;
+
+    printf("Enter the school name to search: ");
+    fgets(searchSchool, sizeof(searchSchool), stdin);
+    searchSchool[strcspn(searchSchool, "\n")] = '\0';
+
+    printf("\nStudents from '%s':\n", searchSchool);
+
+    for (int i = 0; i < student_count; i++) {
+        if (strcmp(personal[i].school, searchSchool) == 0) {
+            found = 1;
+            printf("\n--- Student %d ---\n", i + 1);
+            printf("Name: %s\n", personal[i].name);
+            printf("Age: %d\n", personal[i].age);
+            printf("Allowance: %.2f\n", personal[i].sinfo.allowance);
+            printf("Fare: %.2f\n", personal[i].sinfo.fare);
+            printf("Food: %.2f\n", personal[i].sinfo.food);
+            printf("Net Allowance: %.2f\n", personal[i].sinfo.net_allowance);
+        }
+    }
+
+    if (!found) {
+        printf("No students found from '%s'.\n", searchSchool);
+    }
+}
