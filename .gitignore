@@ -1,336 +1,97 @@
-#include <stdio.h>   // For standard input/output functions (printf, scanf, fopen, fclose)
-#include <string.h>  // For string manipulation functions (strcpy, strlen, strcmp)
-#include <stdlib.h>  // For exit() and general utilities
-#include <ctype.h>   // For character testing functions (isalpha, isalnum, isspace, toupper)
+#include  <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-// Define the file name for employee records
-#define EMPLOYEE_DATA_FILE "employee_records.txt"
-#define MAX_EMPLOYEES 5
-
-// Define the Employee Structure
 typedef struct {
-    char employeeNumber[11]; // 10 characters + null terminator
-    char employeeName[16];   // 15 characters + null terminator
-    char statusCode;         // 'R' or 'C'
+    char empNumber[11];  // 10 characters + null terminator
+    char empName[16];    // 15 characters + null terminator
+    char statusCode;     // R or C
     int hoursWorked;
     float basicRate;
-    float deductions;
-    // Calculated fields (will be computed after reading data)
-    float basicSalary;
+    float basicPay;
     float overtimePay;
+    float deductions;
     float netPay;
 } Employee;
 
-// Function to clear the input buffer
-void clearInputBuffer() {
-    int c;
-    while ((c = getchar()) != '\n' && c != EOF);
-}
-
-// --- Validation Functions ---
-
-// Validates employee number (max 10 chars, alphanumeric)
-int validateEmployeeNumber(const char* emp_num) {
-    if (strlen(emp_num) > 10 || strlen(emp_num) == 0) {
-        return 0; // Length constraint
-    }
-    for (int i = 0; i < strlen(emp_num); i++) {
-        if (!isalnum((unsigned char)emp_num[i])) {
-            return 0; // Must be alphanumeric
-        }
-    }
-    return 1;
-}
-
-// Validates employee name (max 15 chars, letters/spaces only)
-int validateEmployeeName(const char* emp_name) {
-    if (strlen(emp_name) > 15 || strlen(emp_name) == 0) {
-        return 0; // Length constraint
-    }
-    for (int i = 0; i < strlen(emp_name); i++) {
-        if (!isalpha((unsigned char)emp_name[i]) && !isspace((unsigned char)emp_name[i])) {
-            return 0; // Must be letters or spaces
-        }
-    }
-    return 1;
-}
-
-// Validates status code (R or C)
-int validateStatusCode(char status_code) {
-    status_code = (char)toupper((unsigned char)status_code);
-    return (status_code == 'R' || status_code == 'C');
-}
-
-// Validates hours worked (0-99)
-int validateHoursWorked(int hours_worked) {
-    return (hours_worked >= 0 && hours_worked <= 99);
-}
-
-// Validates basic rate (0.00-999.99)
-int validateBasicRate(float basic_rate) {
-    return (basic_rate >= 0.0 && basic_rate <= 999.99);
-}
-
-// Validates deductions (0.00-99999.99)
-int validateDeductions(float deductions) {
-    return (deductions >= 0.0 && deductions <= 99999.99);
-}
-
-// Generic input function with validation and retry
-// Parameters:
-//   prompt: The message displayed to the user.
-//   format: The scanf format string (e.g., "%s", "%d", "%f", "%c").
-//   data_ptr: Pointer to the variable where input will be stored.
-//   validation_func: A function pointer to the validation function.
-//   error_message: The error message to display on invalid input.
-// Note: For strings, `validation_func` should expect `char*` and `data_ptr` should be `char[]`.
-// For single characters, `validation_func` should expect `char` and `data_ptr` should be `char*`.
-// For numbers, `validation_func` should expect `int` or `float` and `data_ptr` should be `int*` or `float*`.
-int getValidatedInput(const char* prompt, const char* format, void* data_ptr, int (*validation_func)(), const char* error_message) {
-    int isValid = 0;
-    while (!isValid) {
-        printf("%s", prompt);
-        if (strcmp(format, "%s") == 0) {
-            char buffer[256]; // Temporary buffer for string input
-            if (scanf("%255s", buffer) == 1) { // Read string, limit to 255 chars to prevent buffer overflow
-                clearInputBuffer();
-                if (validation_func(buffer)) {
-                    strcpy((char*)data_ptr, buffer); // Copy valid string to destination
-                    isValid = 1;
-                } else {
-                    printf("Error: %s\n", error_message);
-                }
-            } else {
-                printf("Error: Invalid input format. Please try again.\n");
-                clearInputBuffer();
-            }
-        } else if (strcmp(format, "%d") == 0) {
-            int temp_val;
-            if (scanf("%d", &temp_val) == 1) {
-                clearInputBuffer();
-                if (validation_func(temp_val)) {
-                    *((int*)data_ptr) = temp_val;
-                    isValid = 1;
-                } else {
-                    printf("Error: %s\n", error_message);
-                }
-            } else {
-                printf("Error: Invalid input. Please enter a number.\n");
-                clearInputBuffer();
-            }
-        } else if (strcmp(format, "%f") == 0) {
-            float temp_val;
-            if (scanf("%f", &temp_val) == 1) {
-                clearInputBuffer();
-                if (validation_func(temp_val)) {
-                    *((float*)data_ptr) = temp_val;
-                    isValid = 1;
-                } else {
-                    printf("Error: %s\n", error_message);
-                }
-            } else {
-                printf("Error: Invalid input. Please enter a number.\n");
-                clearInputBuffer();
-            }
-        } else if (strcmp(format, " %c") == 0 || strcmp(format, "%c") == 0) { // Note the space for character if needed
-            char temp_char;
-            if (scanf(" %c", &temp_char) == 1) { // Leading space to consume leftover newline
-                clearInputBuffer();
-                if (validation_func(temp_char)) {
-                    *((char*)data_ptr) = (char)toupper((unsigned char)temp_char); // Convert to uppercase for storage
-                    isValid = 1;
-                } else {
-                    printf("Error: %s\n", error_message);
-                }
-            } else {
-                printf("Error: Invalid input. Please enter a single character.\n");
-                clearInputBuffer();
-            }
-        } else {
-            printf("Internal error: Unsupported format string in getValidatedInput.\n");
-            return 0; // Indicate failure
-        }
-    }
-    return 1; // Indicate success
-}
-
-
-// --- File Handling Functions ---
-
-// Writes employee data for MAX_EMPLOYEES to a text file
-void writeEmployeeDataToFile() {
-    FILE *file = fopen(EMPLOYEE_DATA_FILE, "w"); // Open in write mode (creates/overwrites file)
-    if (file == NULL) {
-        perror("Error opening file for writing");
-        return;
-    }
-
-    Employee emp;
-    printf("\n--- Enter Data for %d Employees ---\n", MAX_EMPLOYEES);
-
-    for (int i = 0; i < MAX_EMPLOYEES; i++) {
-        printf("\nEmployee #%d\n", i + 1);
-
-        getValidatedInput("Enter Employee Number (max 10 chars, alphanumeric): ", "%s", emp.employeeNumber, (int (*)())validateEmployeeNumber, "Employee number must be alphanumeric and up to 10 characters.");
-        getValidatedInput("Enter Employee Name (max 15 chars, letters/spaces only): ", "%s", emp.employeeName, (int (*)())validateEmployeeName, "Employee name must be letters/spaces only and up to 15 characters.");
-        getValidatedInput("Enter Status Code (R for Regular, C for Casual): ", " %c", &emp.statusCode, (int (*)())validateStatusCode, "Status code must be 'R' or 'C'.");
-        getValidatedInput("Enter Hours Worked (0-99): ", "%d", &emp.hoursWorked, (int (*)())validateHoursWorked, "Hours worked must be a number between 0 and 99.");
-        getValidatedInput("Enter Basic Rate (up to 999.99): ", "%f", &emp.basicRate, (int (*)())validateBasicRate, "Basic rate must be a number up to 999.99.");
-        getValidatedInput("Enter Deductions (up to 99999.99): ", "%f", &emp.deductions, (int (*)())validateDeductions, "Deductions must be a number up to 99999.99.");
-
-        // Write the data to the file in a comma-separated format
-        fprintf(file, "%s,%s,%c,%d,%.2f,%.2f\n",
-                emp.employeeNumber,
-                emp.employeeName,
-                emp.statusCode,
-                emp.hoursWorked,
-                emp.basicRate,
-                emp.deductions);
-    }
-
-    fclose(file);
-    printf("\nSuccessfully wrote employee data to %s\n", EMPLOYEE_DATA_FILE);
-}
-
-// Reads employee data from the text file into an array of Employee structs
-int readEmployeeDataFromFile(Employee employees[]) {
-    FILE *file = fopen(EMPLOYEE_DATA_FILE, "r"); // Open in read mode
-    if (file == NULL) {
-        printf("Error: The file '%s' was not found. Please run the data entry first.\n", EMPLOYEE_DATA_FILE);
-        return 0; // Return 0 employees read
-    }
-
-    int count = 0;
-    while (count < MAX_EMPLOYEES &&
-           fscanf(file, "%10[^,],%15[^,],%c,%d,%f,%f\n",
-                  employees[count].employeeNumber,
-                  employees[count].employeeName,
-                  &employees[count].statusCode,
-                  &employees[count].hoursWorked,
-                  &employees[count].basicRate,
-                  &employees[count].deductions) == 6) { // Read 6 items successfully
-        // Ensure status code is upper case after reading (if not already during input)
-        employees[count].statusCode = (char)toupper((unsigned char)employees[count].statusCode);
-        count++;
-    }
-
-    fclose(file);
-    if (count == 0) {
-        printf("No employee data found in %s or file is empty.\n", EMPLOYEE_DATA_FILE);
-    } else {
-        printf("Successfully read %d employee records from %s\n", count, EMPLOYEE_DATA_FILE);
-    }
-    return count; // Return the number of employees read
-}
-
-
-// --- Payroll Calculation Function ---
-
-// Calculates Basic Pay, Overtime Pay, and Net Pay for each employee
-void calculatePayroll(Employee employees[], int num_employees) {
-    for (int i = 0; i < num_employees; i++) {
-        // Basic Pay (equivalent to 160 hours worked)
-        employees[i].basicSalary = 160.0 * employees[i].basicRate;
-
-        // Overtime Pay
-        employees[i].overtimePay = 0.0;
-        if (employees[i].hoursWorked > 160) {
-            float overtimeHours = (float)employees[i].hoursWorked - 160.0;
-            // Overtime rate is 0.5 more than basic rate (1.5 times basic rate)
-            float overtimeRate = employees[i].basicRate * 1.5;
-            employees[i].overtimePay = overtimeHours * overtimeRate;
-        }
-
-        // Net Pay = Basic Pay + Overtime pay – Deductions
-        employees[i].netPay = employees[i].basicSalary + employees[i].overtimePay - employees[i].deductions;
-    }
-}
-
-// --- Display Function ---
-
-// Displays the payroll information in a formatted table
-void displayPayroll(const Employee employees[], int num_employees) {
-    if (num_employees == 0) {
-        printf("\nNo employee data to display. Please ensure data has been entered and read correctly.\n");
-        return;
-    }
-
-    printf("\n%s\n", "================================================================================");
-    printf("%40s\n", "ABC COMPANY");
-    printf("%40s\n", "Makati City");
-    printf("%40s\n", "Payroll");
-    printf("%s\n", "================================================================================");
-
-    // Print table headers
-    printf("%-10s %-15s %-8s %12s %12s %12s %12s\n",
-           "Employee", "Employee", "Status", "Basic", "Overtime", "Deductions", "Net");
-    printf("%-10s %-15s %-8s %12s %12s %12s %12s\n",
-           "Number", "Name", "", "Salary", "Pay", "", "Pay");
-    printf("%-10s %-15s %-8s %12s %12s %12s %12s\n",
-           "----------", "---------------", "--------", "------------", "------------", "------------", "------------");
-
-    // Print employee data rows
-    for (int i = 0; i < num_employees; i++) {
-        const char* displayStatus = (employees[i].statusCode == 'R') ? "Regular" : "Casual";
-        printf("%-10s %-15s %-8s %12.2f %12.2f %12.2f %12.2f\n",
-               employees[i].employeeNumber,
-               employees[i].employeeName,
-               displayStatus,
-               employees[i].basicSalary,
-               employees[i].overtimePay,
-               employees[i].deductions,
-               employees[i].netPay);
-    }
-    printf("%s\n", "================================================================================");
-}
-
-
-// --- Main Function ---
-
 int main() {
-    Employee employees[MAX_EMPLOYEES]; // Array to hold employee data
-    int num_employees_loaded = 0;      // Counter for employees successfully loaded/read
 
-    int choice;
-    do {
-        printf("\n--- Employee Payroll System (C Version) ---\n");
-        printf("1. Enter Employee Data (for %d employees)\n", MAX_EMPLOYEES);
-        printf("2. Display Payroll\n");
-        printf("3. Exit\n");
-        printf("Enter your choice (1-3): ");
+    Employee emp[5];
+    FILE *fp;  // Write to text file with formatted layout
+    int i;
+    
 
-        if (scanf("%d", &choice) != 1) { // Read user choice
-            printf("Invalid input. Please enter a number.\n");
-            clearInputBuffer(); // Clear buffer on invalid input
-            choice = 0; // Set to an invalid choice to re-loop
+    // Input 5 employees
+    for (i = 0; i < 5; i++) {
+        printf("Enter Employee %d Details:\n", i + 1);
+
+        printf("Employee Number (10 chars): ");
+        scanf("%s", emp[i].empNumber);
+
+        printf("Employee Name (15 chars max): ");
+        scanf(" %s[^\n]", emp[i].empName);  // allows spaces in name
+
+        printf("Status Code (R/C): ");
+        scanf(" %c", &emp[i].statusCode);
+
+        printf("Hours Worked: ");
+        scanf("%d", &emp[i].hoursWorked);
+
+        printf("Basic Rate: ");
+        scanf("%f", &emp[i].basicRate);
+
+        printf("Deductions: ");
+        scanf("%f", &emp[i].deductions);
+
+        emp[i].basicPay = 160 * emp[i].basicRate;
+
+        if (emp[i].hoursWorked > 160) {
+            int overtime = emp[i].hoursWorked - 160;
+            emp[i].overtimePay = overtime * (emp[i].basicRate * 1.5);
         } else {
-            clearInputBuffer(); // Clear remaining newline character
+            emp[i].overtimePay = 0;
         }
 
-        switch (choice) {
-            case 1:
-                writeEmployeeDataToFile();
-                // After writing, we should attempt to re-read to populate the array
-                // if the user immediately chooses to display without re-running the program.
-                // For simplicity, we just write, and display option will re-read.
-                break;
-            case 2:
-                num_employees_loaded = readEmployeeDataFromFile(employees);
-                if (num_employees_loaded > 0) {
-                    calculatePayroll(employees, num_employees_loaded);
-                    displayPayroll(employees, num_employees_loaded);
-                } else {
-                    printf("No data loaded to display. Please enter employee data first.\n");
-                }
-                break;
-            case 3:
-                printf("Exiting Payroll System. Goodbye!\n");
-                break;
-            default:
-                printf("Invalid choice. Please enter 1, 2, or 3.\n");
-                break;
-        }
-    } while (choice != 3);
+        emp[i].netPay = emp[i].basicPay + emp[i].overtimePay - emp[i].deductions;
+    }
+fp = fopen("employees.txt", "w");
+    if (fp == NULL) {
+        printf("Error opening file!\n");
+        return 1;
+    }
+    fprintf(fp, "                               WENDELL CORP\n");
+    fprintf(fp, "                                QUEZON \n");
+    fprintf(fp, "                                 City\n\n");
+    fprintf(fp, "                                Payroll\n\n");
 
-    return 0; // Indicate successful execution
+    fprintf(fp, "Employee     Employee         Status    Basic     Overtime  Deductions   Net\n");
+    fprintf(fp, "Number       Name                       Salary       Pay                 Pay\n");
+    fprintf(fp, "-------------------------------------------------------------------------------\n");
+
+    for (i = 0; i < 5; i++) {
+        char statusStr[10];
+        if (emp[i].statusCode == 'R' || emp[i].statusCode == 'r') {
+            strcpy(statusStr, "Regular");
+        } else if (emp[i].statusCode == 'C' || emp[i].statusCode == 'c') {
+            strcpy(statusStr, "Casual");
+        } else {
+            strcpy(statusStr, "Unknown");
+        }
+
+        fprintf(fp, "%-12s %-16s %-8s %9.2f %10.2f %11.2f %9.2f\n",
+                emp[i].empNumber,
+                emp[i].empName,
+                statusStr,
+                emp[i].basicPay,
+                emp[i].overtimePay,
+                emp[i].deductions,
+                emp[i].netPay);
+    }
+
+
+    fclose(fp);
+
+    printf("Payroll written to employees.txt successfully.\n");
+
+    return 0;
 }
